@@ -39,9 +39,10 @@ CREATE TABLE Customer (
 	Email VARCHAR(100),
 	PhoneNumber VARCHAR(20)
 ); 
+DROP TABLE IF EXISTS Ticket;
 
 CREATE TABLE Ticket (
-	TicketID INT PRIMARY KEY,
+	TicketID INT PRIMARY KEY IDENTITY (1,1),
 	ShowtimeID INT,
 	SeatNumber VARCHAR(10) NOT NULL,
 	PurchasedDateTime DATETIME NOT NULL,
@@ -103,6 +104,10 @@ VALUES
     (2, 2, 3, '2024-03-02 20:00:00', 2.30),
     (3, 3, 2, '2024-03-02 17:30:00', 11.20);
 
+INSERT INTO Showtime (ShowtimeID, MovieID, TheaterID, ShowDateTime, Price) 
+VALUES 
+	(4, 1, 2, '2024-03-02 17:20:00', 12.20);
+
 	
 
 INSERT INTO Customer (CustomerID, FirstName, LastName, Email, PhoneNumber) 
@@ -114,11 +119,16 @@ VALUES
 
 
 
-INSERT INTO Ticket (TicketID, ShowtimeID, SeatNumber, PurchasedDateTime, CustomerID) 
+INSERT INTO Ticket ( ShowtimeID, SeatNumber, PurchasedDateTime, CustomerID) 
 VALUES 
-    (1, 1, 'A22', '2024-03-12 15:30:00', 1),
-    (2, 2, 'B8', '2024-03-12 16:45:00', 2),
-    (3, 3, 'C16', '2024-03-12 17:00:00', 3);
+    ( 1, 'A22', '2024-03-12 15:30:00', 1),
+    ( 2, 'B8', '2024-03-12 16:45:00', 2),
+    ( 3, 'C16', '2024-03-12 17:00:00', 3);
+	INSERT INTO Ticket ( ShowtimeID, SeatNumber, PurchasedDateTime, CustomerID) 
+VALUES 
+    ( 4, 'C16', '2024-03-12 17:00:00', 3);
+
+	SELECT * FROM Ticket
 
 
 INSERT INTO Review (ReviewID, MovieID, CustomerID, ReviewText, Rating, ReviewDate) 
@@ -136,7 +146,7 @@ VALUES
     (2, 1, 'Jane', 'Fante', 'Comessa', '2022-02-20'),
     (3, 2, 'Sara', 'Johnson', 'Pulizie', '2022-03-10');
 
-
+	SELECT * FROM EMPLOYEE;
 	--Punto 1
 	
 	
@@ -158,22 +168,111 @@ SELECT * FROM FilmsInProgrammation;
   --Punto 2
 
  -- SELECT Capacity FROM Theater;
+ 
+
 
   CREATE VIEW AvailableSeatsForShow AS
 		SELECT 
-		Showtime.ShowtimeID,
+		
+		Title,
+
 		Theater.Capacity AS TotalSeats,
-		(Theater.Capacity - COUNT(Ticket.SeatNumber))AS AvailableSeats
+		Theater.Capacity - (SELECT COUNT(*) FROM Ticket WHERE Showtime.ShowtimeID = Ticket.ShowtimeID) AS Difference 
+
+
       FROM Showtime
+	  JOIN  Theater ON  Showtime.TheaterID = Theater.TheaterID
+	  JOIN Movie ON Showtime.MovieID = Movie.MovieID
 
-	  JOIN Theater ON Showtime.ShowtimeID = Theater.TheaterID;
-
-	
-
-	 
-
-
-
-
+	SELECT * FROM AvailableSeatsForShow; 
 
 	
+
+	--3
+
+	 CREATE VIEW TotalEarningsPerMovie AS
+	     
+		 SELECT Title,  Price * (SELECT COUNT(*) FROM Ticket WHERE Showtime.ShowtimeID = Ticket.ShowtimeID) AS Incasso
+ 
+		 FROM Movie
+
+		 JOIN Showtime
+			ON Showtime.MovieID = Movie.MovieID
+
+	SELECT * FROM TotalEarningsPerMovie; 
+
+	--4
+	
+	CREATE VIEW RecentReviews AS
+
+	SELECT Title, ReviewText AS 'RECENSIONI', ReviewDate , Review.Rating
+
+	FROM Review
+
+	JOIN Movie 
+	ON Movie.MovieID= Review.MovieID
+
+
+	SELECT * FROM RecentReviews
+	ORDER BY ReviewDate DESC
+	;
+	  
+--DROP PROCEDURE PurchaseTicket
+
+
+
+	CREATE PROCEDURE PurchaseTicket	
+		@ShowtimeID INT ,
+		@SeatNumber VARCHAR(10) ,
+		@CustomerID INT 
+	 AS
+
+	BEGIN 
+
+	BEGIN TRY
+		
+		SELECT * FROM Ticket
+			JOIN Showtime ON Ticket.ShowtimeID = Showtime.ShowtimeID
+	WHERE @SeatNumber = Ticket.SeatNumber AND Showtime.ShowtimeID = @ShowtimeID
+
+		IF @@rowcount = 0
+
+		INSERT INTO Ticket(ShowtimeID, SeatNumber, CustomerID, PurchasedDateTime ) VALUES
+		(@ShowtimeID, @SeatNumber, @CustomerID, CURRENT_TIMESTAMP )
+
+	END TRY 
+
+	BEGIN CATCH
+	PRINT 'Errore: ' + ERROR_MESSAGE()
+	END CATCH
+
+	END;
+
+	EXEC  PurchaseTicket @ShowtimeID = 3, @SeatNumber = '846', @CustomerID = 2
+
+    SELECT * 
+	FROM Ticket
+	JOIN  Showtime ON Ticket.ShowtimeID = Showtime.ShowtimeID
+	JOIN  Movie ON Showtime.MovieID= Movie.MovieID
+
+
+	SELECT * FROM Ticket
+
+
+
+	--DROP PROCEDURE UpdateMovieSchedule
+
+	CREATE PROCEDURE UpdateMovieSchedule
+		
+		@MovieID INT,
+		@ShowDateTime DATETIME 
+		AS
+	BEGIN 
+	UPDATE Showtime SET ShowDateTime = @ShowDateTime  WHERE MovieID = @MovieID
+
+	END;
+
+	EXEC UpdateMovieSchedule @ShowDateTime= '2024-06-02 19:30:00', @MovieID= 2
+
+	 SELECT * FROM Showtime
+
